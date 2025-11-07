@@ -5,13 +5,21 @@
 #include <string.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+
+#define PORT "1234"
+#define BACKLOG 5
 
 int main() {
     int status;
     struct addrinfo hints;
     struct addrinfo *servinfo; // will point to the results of the getaddrinfo call
-    struct addrinfo *p;
-    char ipstr[INET6_ADDRSTRLEN];
+    struct addrinfo *p, *q; // iterates thru servinfo
+    char ipstr[INET6_ADDRSTRLEN]; // buffer to hold the ip address string for printing
+    int sockfd, new_fd; // file descriptor? will be used to return from socket call
+    int bind_status;
+    struct sockaddr_storage their_addr;
+    socklen_t addr_size;
 
     memset(&hints, 0, sizeof hints); // make sure struct 'hints' is empty
     hints.ai_family = AF_UNSPEC; // don't care ip4 or ip6
@@ -50,7 +58,47 @@ int main() {
         printf("  %s: %s\n", ipver, ipstr);
     }
 
+    printf("Binding to socket\n");
+    for (q = servinfo; q !=NULL; q = q->ai_next) {
+        sockfd = socket(q->ai_family, q->ai_socktype, q->ai_protocol);
+        if (sockfd == -1) {
+            perror("server: socket");
+            continue;
+        }
+
+        bind_status = bind(sockfd, q->ai_addr, q->ai_addrlen);
+        if (bind_status == -1) {
+            perror("server: bind");
+            continue;
+        }
+
+        break; // both calls successful
+    }
+    printf("Successfully returned sockfd: %d\n", sockfd);
+    printf("Successfully binded to socket: %d\n", bind_status);
+
     freeaddrinfo(servinfo); // free the linked list
 
+    int listen_status = listen(sockfd, BACKLOG);
+    if (listen_status == -1) {
+        perror("server: listen");
+        exit(1);
+    }
+
+    addr_size = sizeof their_addr;
+    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+    close(sockfd);
+    if (new_fd == -1) {
+        perror("server: accept");
+        exit(1);
+    }
+
+    char *msg = "Hello...can you hear me?\n";
+    int len, bytes_sent;
+
+    len = strlen(msg);
+    bytes_sent = send(new_fd, msg, len, 0);
+
+    close(new_fd);
     return 0;
 }
