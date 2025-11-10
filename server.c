@@ -105,7 +105,7 @@ int main() {
 
         if (!fork()) {
             close(sockfd);
-            char *msg = "Hello...can you hear me?\n";
+            char msg[] = "HTTP/1.0 200 OK\r\nContent-Length: 12\r\n\r\nHello World!";
             int len = strlen(msg);
             if (send(new_fd, msg, len, 0) == -1) {
                 perror("send");
